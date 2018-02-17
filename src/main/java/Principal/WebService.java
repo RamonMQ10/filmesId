@@ -20,6 +20,9 @@ import Model.RatingMovieLens;
 
 public class WebService {
 
+	/*
+	 * Ler o arquivo do movieLens e pegar os ids dos filmes no movielens, no imdb e no tmdb
+	 */
 	public static List<MovieLens> lerArquivoMovieLens() {
 
 		List<MovieLens> filmes = new ArrayList<MovieLens>(); int i=1;
@@ -34,10 +37,8 @@ public class WebService {
 			System.out.println("Linha: "+linha);
 			while (linha != null) {
 				String [] valores = linha.split(",");
-				System.out.println("===================== Arquivo 1================================");	
-				if(valores.length == 3) {
-				System.out.println("Filme "+i+": "+linha+" tmdbId: "+valores[2]);
-				
+
+				if(valores.length == 3) { // verificação para pegar somente os filmes que tem o id do tmdb		
 				MovieLens movieLens = new MovieLens(valores[0], valores[1], valores[2]);
 				filmes.add(movieLens);
 				i++;
@@ -58,42 +59,48 @@ public class WebService {
 		return filmes;
 	}
 
+	/*
+	 * Pega os dados dos filmes como titulo, rating no imdb, descrição e etc
+	 */
 	public static String getJSON(MovieLens movie, int timeout) {
 
-		HttpURLConnection c = null;
-		String url = "https://api.themoviedb.org/3/movie/" + movie.getIdTmdb()
+		HttpURLConnection httpURLConnection = null;
+		String urlTmdb = "https://api.themoviedb.org/3/movie/" + movie.getIdTmdb()
 				+ "?api_key=f96f35dad2d93764c36ed623ec9148ff&language=en-US";
 		BancoDados bancoDados = new BancoDados();
 
 		try {
-			URL u = new URL(url);
-			c = (HttpURLConnection) u.openConnection();
-			c.setRequestMethod("GET");
-			c.setRequestProperty("Content-length", "0");
-			c.setUseCaches(false);
-			c.setAllowUserInteraction(false);
-			c.setConnectTimeout(timeout);
-			c.setReadTimeout(timeout);
-			c.connect();
-			int status = c.getResponseCode();
-			// System.out.println(status);
+			//  conexão com a url do imdb
+			URL url = new URL(urlTmdb);
+			httpURLConnection = (HttpURLConnection) url.openConnection();
+			httpURLConnection.setRequestMethod("GET");
+			httpURLConnection.setRequestProperty("Content-length", "0");
+			httpURLConnection.setUseCaches(false);
+			httpURLConnection.setAllowUserInteraction(false);
+			httpURLConnection.setConnectTimeout(timeout);
+			httpURLConnection.setReadTimeout(timeout);
+			httpURLConnection.connect();
+			int status = httpURLConnection.getResponseCode(); // pega o status da requisição
+			
 			switch (status) {
 			case 200:
-				BufferedReader br = new BufferedReader(new InputStreamReader(c.getInputStream()));
-				StringBuilder sb = new StringBuilder();
+				
+				BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(httpURLConnection.getInputStream()));
+				StringBuilder stringBuilder = new StringBuilder();
 				String line;
-				while ((line = br.readLine()) != null) {
-					sb.append(line + "\n");
+				while ((line = bufferedReader.readLine()) != null) {
+					stringBuilder.append(line + "\n"); // transforma o resultado em string
 				}
-				br.close();
-				// System.out.println(sb.toString());
-				JSONObject json = new JSONObject(sb.toString());
-				// JSONArray items = json.getJSONArray("results");
+				
+				bufferedReader.close();
+				
+				JSONObject jsonObject = new JSONObject(stringBuilder.toString()); // transforma a string em json
+				
 
 				int idFilme = Integer.parseInt(movie.getIdMovieLens());
-				String titulo = json.getString("title");
-				String descricao = json.getString("overview");
-				double ratingImdb = json.getDouble("vote_average");
+				String titulo = jsonObject.getString("title");
+				String descricao = jsonObject.getString("overview");
+				double ratingImdb = jsonObject.getDouble("vote_average");
 				int idImdb = Integer.parseInt(movie.getIdImdb());
 				int idTmdb = Integer.parseInt(movie.getIdTmdb());
 				
@@ -102,11 +109,12 @@ public class WebService {
 
 				System.out.println("\tTitulo: " + filme.getTitulo() + "\n\tDescricao: " + descricao
 						+ "\n\tRating do IMDB: " + ratingImdb);
-				System.out.println("\tInsere BD\n\n\n");
-				bancoDados.insereFilme(filme);
+				
+				
+				bancoDados.insereFilme(filme); // salva o filme no banco de dados
 
-				return sb.toString();
-			case 201:
+				return stringBuilder.toString();
+				
 			}
 
 		} catch (MalformedURLException ex) {
@@ -117,9 +125,9 @@ public class WebService {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		} finally {
-			if (c != null) {
+			if (httpURLConnection != null) {
 				try {
-					c.disconnect();
+					httpURLConnection.disconnect();
 				} catch (Exception ex) {
 					ex.printStackTrace();
 				}
@@ -135,7 +143,7 @@ public class WebService {
 
 		for (int i = 0; i < filmes.size(); i++) {
 
-			getJSON(filmes.get(i), 7000);
+			getJSON(filmes.get(i), 7000); 
 
 		}
 
